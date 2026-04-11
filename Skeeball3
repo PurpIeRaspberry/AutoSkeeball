@@ -1,0 +1,149 @@
+-- (This only works on Skeeball3)
+-- Skeeball Cheat GUI - Press E to toggle
+-- Run this in your executor
+
+local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Remove old GUI if exists
+if playerGui:FindFirstChild("SkeeballCheatGUI") then
+    playerGui.SkeeballCheatGUI:Destroy()
+end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SkeeballCheatGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 290, 0, 170)
+frame.Position = UDim2.new(0.5, -145, 0.35, 0)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+frame.BorderSizePixel = 3
+frame.BorderColor3 = Color3.fromRGB(255, 215, 0)
+frame.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 40)
+title.BackgroundTransparency = 1
+title.Text = "🎯 Skeeball Cheat"
+title.TextColor3 = Color3.fromRGB(255, 215, 0)
+title.TextScaled = true
+title.Font = Enum.Font.GothamBold
+title.Parent = frame
+
+local instruction = Instance.new("TextLabel")
+instruction.Size = UDim2.new(1, 0, 0, 30)
+instruction.Position = UDim2.new(0, 0, 0, 40)
+instruction.BackgroundTransparency = 1
+instruction.Text = "Press E to toggle cheat ON/OFF"
+instruction.TextColor3 = Color3.fromRGB(255, 255, 100)
+instruction.TextScaled = true
+instruction.Font = Enum.Font.GothamSemibold
+instruction.Parent = frame
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, 0, 0, 40)
+statusLabel.Position = UDim2.new(0, 0, 0, 75)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "Cheat: DISABLED\nLeft click to shoot ball into hole"
+statusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+statusLabel.TextScaled = true
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.Parent = frame
+
+local enabled = false
+
+-- Toggle with E key
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.E then
+        enabled = not enabled
+        
+        if enabled then
+            statusLabel.Text = "Cheat: ENABLED ✅\nLeft click to shoot current ball"
+            statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+        else
+            statusLabel.Text = "Cheat: DISABLED\nPress E to enable"
+            statusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+        end
+    end
+end)
+
+-- Improved ball detection
+local function getCurrentBall()
+    local arcade = workspace:FindFirstChild("arcade", true)
+    if not arcade then return nil end
+    
+    local skeeball3 = arcade:FindFirstChild("Skeeball3")
+    if not skeeball3 then return nil end
+
+    -- 1. Prefer the loose starting Ball7
+    local looseBall7 = skeeball3:FindFirstChild("Ball7")
+    if looseBall7 and looseBall7.Parent == skeeball3 then
+        return looseBall7
+    end
+
+    -- 2. Any other ball currently in the main Skeeball3 model
+    for _, child in ipairs(skeeball3:GetChildren()) do
+        if child:IsA("Part") and child.Name:match("^Ball%d+$") then
+            return child
+        end
+    end
+
+    -- 3. If none in main model, take the first ball from BallFolder
+    local ballFolder = skeeball3:FindFirstChild("BallFolder")
+    if ballFolder then
+        for _, child in ipairs(ballFolder:GetChildren()) do
+            if child:IsA("Part") and child.Name:match("^Ball%d+$") then
+                return child
+            end
+        end
+    end
+
+    return nil
+end
+
+-- Left click to shoot
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.UserInputType ~= Enum.UserInputType.MouseButton1 or not enabled then 
+        return 
+    end
+
+    local skeeball3 = workspace:FindFirstChild("arcade", true)
+    if skeeball3 then
+        skeeball3 = skeeball3:FindFirstChild("Skeeball3")
+    end
+
+    if not skeeball3 then
+        statusLabel.Text = "Error: Skeeball3 not found"
+        return
+    end
+
+    local holeModel = skeeball3:FindFirstChild("collision", true)
+    if holeModel then
+        holeModel = holeModel:FindFirstChild("Model")
+    end
+
+    if not holeModel then
+        statusLabel.Text = "Error: Hole (collision.Model) not found"
+        return
+    end
+
+    local targetCFrame = holeModel:GetPivot()
+    local currentBall = getCurrentBall()
+
+    if currentBall then
+        currentBall.CFrame = targetCFrame
+        statusLabel.Text = "✅ Shot " .. currentBall.Name .. " into the hole!"
+        
+        task.wait(0.8)
+        statusLabel.Text = "Cheat: ENABLED ✅\nLeft click to shoot next ball"
+    else
+        statusLabel.Text = "❌ No ball found!"
+    end
+end)
+
+print("Skeeball Cheat GUI loaded - Press E to toggle")
